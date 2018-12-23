@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+// Windows is a P implementation that consumes and generates paths suitable for
+// Windows systems.
 var Windows P
 
 func init() {

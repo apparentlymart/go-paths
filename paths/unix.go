@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+// Unix is a P implementation that consumes and generates paths suitable for
+// Unix systems.
 var Unix P
 
 func init() {
