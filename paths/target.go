@@ -22,3 +22,17 @@ var Target P
 func TargetRecognized() bool {
 	return Target != nil
 }
+
+// ForGOOS returns the P implementation that this package would select for
+// variable "Target" on the given GOOS-style operating system name. Returns
+// nil if there is no implementation for the given OS.
+func ForGOOS(goos string) P {
+	switch goos {
+	case "aix", "darwin", "dragonfly", "freebsd", "linux", "netbsd", "openbsd", "solaris":
+		return Unix
+	case "windows":
+		return Windows
+	default:
+		return nil
+	}
+}
