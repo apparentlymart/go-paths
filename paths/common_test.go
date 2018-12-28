@@ -1,6 +1,8 @@
 package paths
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestClean(t *testing.T) {
 	tests := []struct {
@@ -111,6 +113,57 @@ func TestClean(t *testing.T) {
 						}
 					})
 				}
+			}
+		})
+	}
+}
+
+func TestSplit(t *testing.T) {
+	type Test struct {
+		path, dir, file string
+	}
+
+	implTests := map[string][]Test{
+		"Unix": {
+			{"a/b", "a/", "b"},
+			{"a/b/", "a/b/", ""},
+			{"a/", "a/", ""},
+			{"a", "", "a"},
+			{"/", "/", ""},
+		},
+		"Windows": {
+			{`a\b`, `a\`, `b`},
+			{`a\b\`, `a\b\`, ""},
+			{`a\`, `a\`, ``},
+			{"a", "", "a"},
+			{`\`, `\`, ""},
+			{`c:`, `c:`, ``},
+			{`c:/`, `c:/`, ``},
+			{`c:/foo`, `c:/`, `foo`},
+			{`c:/foo/bar`, `c:/foo/`, `bar`},
+			{`//host/share`, `//host/share`, ``},
+			{`//host/share/`, `//host/share/`, ``},
+			{`//host/share/foo`, `//host/share/`, `foo`},
+			{`\\host\share`, `\\host\share`, ``},
+			{`\\host\share\`, `\\host\share\`, ``},
+			{`\\host\share\foo`, `\\host\share\`, `foo`},
+		},
+	}
+
+	impls := map[string]P{
+		"Unix":    Unix,
+		"Windows": Windows,
+	}
+
+	for implName, tests := range implTests {
+		t.Run(implName, func(t *testing.T) {
+			impl := impls[implName]
+			for _, test := range tests {
+				t.Run(test.path, func(t *testing.T) {
+					if d, f := impl.Split(test.path); d != test.dir || f != test.file {
+						t.Errorf("Split(%q) = %q, %q, want %q, %q", test.path, d, f, test.dir, test.file)
+					}
+				})
 			}
 		})
 	}
