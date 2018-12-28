@@ -588,3 +588,42 @@ func TestRel(t *testing.T) {
 		})
 	}
 }
+
+func TestVolumeName(t *testing.T) {
+	tests := []struct {
+		path, vol string
+	}{
+		{`c:/foo/bar`, `c:`},
+		{`c:`, `c:`},
+		{`2:`, ``},
+		{``, ``},
+		{`\\\host`, ``},
+		{`\\\host\`, ``},
+		{`\\\host\share`, ``},
+		{`\\\host\\share`, ``},
+		{`\\host`, ``},
+		{`//host`, ``},
+		{`\\host\`, ``},
+		{`//host/`, ``},
+		{`\\host\share`, `\\host\share`},
+		{`//host/share`, `//host/share`},
+		{`\\host\share\`, `\\host\share`},
+		{`//host/share/`, `//host/share`},
+		{`\\host\share\foo`, `\\host\share`},
+		{`//host/share/foo`, `//host/share`},
+		{`\\host\share\\foo\\\bar\\\\baz`, `\\host\share`},
+		{`//host/share//foo///bar////baz`, `//host/share`},
+		{`\\host\share\foo\..\bar`, `\\host\share`},
+		{`//host/share/foo/../bar`, `//host/share`},
+	}
+
+	for _, test := range tests {
+		t.Run(test.path, func(t *testing.T) {
+			got := Windows.VolumeName(test.path)
+			want := test.vol
+			if got != want {
+				t.Errorf("wrong result for Windows.VolumeName(%q)\ngot:  %s\nwant: %s", test.path, got, want)
+			}
+		})
+	}
+}
