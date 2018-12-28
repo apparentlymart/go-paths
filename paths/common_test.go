@@ -252,3 +252,38 @@ func TestJoin(t *testing.T) {
 		})
 	}
 }
+
+func TestExt(t *testing.T) {
+	tests := []struct {
+		path, ext string
+	}{
+		{"path.go", ".go"},
+		{"path.pb.go", ".go"},
+		{"a.dir/b", ""},
+		{"a.dir/b.go", ".go"},
+		{"a.dir/", ""},
+	}
+
+	impls := map[string]P{
+		"Unix":    Unix,
+		"Windows": Windows,
+	}
+
+	for name, p := range impls {
+		t.Run(name, func(t *testing.T) {
+			for _, test := range tests {
+				t.Run(test.path, func(t *testing.T) {
+					got := p.Ext(test.path)
+					want := test.ext
+					if name == "Windows" {
+						want = Windows.(impl).fromSlash(want)
+					}
+					if got != want {
+						t.Errorf("wrong result for %s.Clean(%q)\ngot:  %s\nwant: %s", name, test.path, got, want)
+					}
+				})
+			}
+		})
+	}
+
+}
