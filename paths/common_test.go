@@ -279,11 +279,208 @@ func TestExt(t *testing.T) {
 						want = Windows.(impl).fromSlash(want)
 					}
 					if got != want {
-						t.Errorf("wrong result for %s.Clean(%q)\ngot:  %s\nwant: %s", name, test.path, got, want)
+						t.Errorf("wrong result for %s.Ext(%q)\ngot:  %s\nwant: %s", name, test.path, got, want)
 					}
 				})
 			}
 		})
 	}
+}
 
+func TestBase(t *testing.T) {
+	tests := []struct {
+		path, want string
+	}{
+		{"", "."},
+		{".", "."},
+		{"/.", "."},
+		{"/", "/"},
+		{"////", "/"},
+		{"x/", "x"},
+		{"abc", "abc"},
+		{"abc/def", "def"},
+		{"a/b/.x", ".x"},
+		{"a/b/c.", "c."},
+		{"a/b/c.x", "c.x"},
+	}
+	windowsTests := []struct {
+		path, want string
+	}{
+		{`c:\`, `\`},
+		{`c:.`, `.`},
+		{`c:\a\b`, `b`},
+		{`c:a\b`, `b`},
+		{`c:a\b\c`, `c`},
+		{`\\host\share\`, `\`},
+		{`\\host\share\a`, `a`},
+		{`\\host\share\a\b`, `b`},
+	}
+
+	impls := map[string]P{
+		"Unix":    Unix,
+		"Windows": Windows,
+	}
+
+	for name, p := range impls {
+		t.Run(name, func(t *testing.T) {
+			for _, test := range tests {
+				t.Run(test.path, func(t *testing.T) {
+					got := p.Base(test.path)
+					want := test.want
+					if name == "Windows" {
+						want = Windows.(impl).fromSlash(want)
+					}
+					if got != want {
+						t.Errorf("wrong result for %s.Base(%q)\ngot:  %s\nwant: %s", name, test.path, got, want)
+					}
+				})
+			}
+			switch name {
+			case "Windows":
+				for _, test := range windowsTests {
+					t.Run(test.path, func(t *testing.T) {
+						got := p.Base(test.path)
+						want := test.want
+						if got != want {
+							t.Errorf("wrong result for %s.Base(%q)\ngot:  %s\nwant: %s", name, test.path, got, want)
+						}
+					})
+				}
+			}
+		})
+	}
+}
+
+func TestDir(t *testing.T) {
+	tests := []struct {
+		path, want string
+	}{
+		{"", "."},
+		{".", "."},
+		{"/.", "/"},
+		{"/", "/"},
+		{"////", "/"},
+		{"/foo", "/"},
+		{"x/", "x"},
+		{"abc", "."},
+		{"abc/def", "abc"},
+		{"a/b/.x", "a/b"},
+		{"a/b/c.", "a/b"},
+		{"a/b/c.x", "a/b"},
+	}
+	windowsTests := []struct {
+		path, want string
+	}{
+		{`c:\`, `c:\`},
+		{`c:.`, `c:.`},
+		{`c:\a\b`, `c:\a`},
+		{`c:a\b`, `c:a`},
+		{`c:a\b\c`, `c:a\b`},
+		{`\\host\share`, `\\host\share`},
+		{`\\host\share\`, `\\host\share\`},
+		{`\\host\share\a`, `\\host\share\`},
+		{`\\host\share\a\b`, `\\host\share\a`},
+	}
+
+	impls := map[string]P{
+		"Unix":    Unix,
+		"Windows": Windows,
+	}
+
+	for name, p := range impls {
+		t.Run(name, func(t *testing.T) {
+			for _, test := range tests {
+				t.Run(test.path, func(t *testing.T) {
+					got := p.Dir(test.path)
+					want := test.want
+					if name == "Windows" {
+						want = Windows.(impl).fromSlash(want)
+					}
+					if got != want {
+						t.Errorf("wrong result for %s.Dir(%q)\ngot:  %s\nwant: %s", name, test.path, got, want)
+					}
+				})
+			}
+			switch name {
+			case "Windows":
+				for _, test := range windowsTests {
+					t.Run(test.path, func(t *testing.T) {
+						got := p.Dir(test.path)
+						want := test.want
+						if got != want {
+							t.Errorf("wrong result for %s.Dir(%q)\ngot:  %s\nwant: %s", name, test.path, got, want)
+						}
+					})
+				}
+			}
+		})
+	}
+}
+
+func TestIsAbs(t *testing.T) {
+	type Test struct {
+		path string
+		want bool
+	}
+
+	implTests := map[string][]Test{
+		"Unix": {
+			{"", false},
+			{"/", true},
+			{"/usr/bin/gcc", true},
+			{"..", false},
+			{"/a/../bb", true},
+			{".", false},
+			{"./", false},
+			{"lala", false},
+		},
+		"Windows": {
+			{`C:\`, true},
+			{`c\`, false},
+			{`c::`, false},
+			{`c:`, false},
+			{`/`, false},
+			{`\`, false},
+			{`\Windows`, false},
+			{`c:a\b`, false},
+			{`c:\a\b`, true},
+			{`c:/a/b`, true},
+			{`\\host\share\foo`, true},
+			{`//host/share/foo/bar`, true},
+		},
+	}
+
+	impls := map[string]P{
+		"Unix":    Unix,
+		"Windows": Windows,
+	}
+
+	for _, test := range implTests["Unix"] {
+		// The unix tests can be adapted into additional Windows tests due to
+		// two rules:
+		// - Any path without a drive letter can't be absolute, and no Unix
+		//   paths have drive letters, and so all Unix tests should produce false.
+		// - Adding a volume prefix to any Unix path should make it produce
+		//   the same results on Windows.
+
+		implTests["Windows"] = append(implTests["Windows"], Test{
+			test.path, false,
+		})
+		implTests["Windows"] = append(implTests["Windows"], Test{
+			"c:" + test.path, test.want,
+		})
+	}
+
+	for implName, tests := range implTests {
+		t.Run(implName, func(t *testing.T) {
+			impl := impls[implName]
+			for _, test := range tests {
+				t.Run(test.path, func(t *testing.T) {
+					if got := impl.IsAbs(test.path); got != test.want {
+						t.Errorf("IsAbs(%q) = %#v, want %#v", test.path, got, test.want)
+					}
+				})
+			}
+		})
+	}
 }
