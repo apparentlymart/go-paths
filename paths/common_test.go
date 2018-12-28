@@ -484,3 +484,107 @@ func TestIsAbs(t *testing.T) {
 		})
 	}
 }
+
+func TestRel(t *testing.T) {
+	tests := []struct {
+		root, path, want string
+	}{
+		{"a/b", "a/b", "."},
+		{"a/b/.", "a/b", "."},
+		{"a/b", "a/b/.", "."},
+		{"./a/b", "a/b", "."},
+		{"a/b", "./a/b", "."},
+		{"ab/cd", "ab/cde", "../cde"},
+		{"ab/cd", "ab/c", "../c"},
+		{"a/b", "a/b/c/d", "c/d"},
+		{"a/b", "a/b/../c", "../c"},
+		{"a/b/../c", "a/b", "../b"},
+		{"a/b/c", "a/c/d", "../../c/d"},
+		{"a/b", "c/d", "../../c/d"},
+		{"a/b/c/d", "a/b", "../.."},
+		{"a/b/c/d", "a/b/", "../.."},
+		{"a/b/c/d/", "a/b", "../.."},
+		{"a/b/c/d/", "a/b/", "../.."},
+		{"../../a/b", "../../a/b/c/d", "c/d"},
+		{"/a/b", "/a/b", "."},
+		{"/a/b/.", "/a/b", "."},
+		{"/a/b", "/a/b/.", "."},
+		{"/ab/cd", "/ab/cde", "../cde"},
+		{"/ab/cd", "/ab/c", "../c"},
+		{"/a/b", "/a/b/c/d", "c/d"},
+		{"/a/b", "/a/b/../c", "../c"},
+		{"/a/b/../c", "/a/b", "../b"},
+		{"/a/b/c", "/a/c/d", "../../c/d"},
+		{"/a/b", "/c/d", "../../c/d"},
+		{"/a/b/c/d", "/a/b", "../.."},
+		{"/a/b/c/d", "/a/b/", "../.."},
+		{"/a/b/c/d/", "/a/b", "../.."},
+		{"/a/b/c/d/", "/a/b/", "../.."},
+		{"/../../a/b", "/../../a/b/c/d", "c/d"},
+		{".", "a/b", "a/b"},
+		{".", "..", ".."},
+
+		// can't do purely lexically
+		{"..", ".", "err"},
+		{"..", "a", "err"},
+		{"../..", "..", "err"},
+		{"a", "/a", "err"},
+		{"/a", "a", "err"},
+	}
+	windowsTests := []struct {
+		root, path, want string
+	}{
+		{`C:a\b\c`, `C:a/b/d`, `..\d`},
+		{`C:\`, `D:\`, `err`},
+		{`C:`, `D:`, `err`},
+		{`C:\Projects`, `c:\projects\src`, `src`},
+		{`C:\Projects`, `c:\projects`, `.`},
+		{`C:\Projects\a\..`, `c:\projects`, `.`},
+	}
+
+	impls := map[string]P{
+		"Unix":    Unix,
+		"Windows": Windows,
+	}
+
+	for name, p := range impls {
+		t.Run(name, func(t *testing.T) {
+			for _, test := range tests {
+				t.Run(test.path, func(t *testing.T) {
+					got, err := p.Rel(test.root, test.path)
+					if test.want == "err" {
+						if err == nil {
+							t.Errorf("wrong result for %s.Rel(%q, %q)\ngot:  %s\nwant: an error", name, test.root, test.path, got)
+						}
+						return
+					}
+					want := test.want
+					if name == "Windows" {
+						want = Windows.(impl).fromSlash(want)
+					}
+					if got != want {
+						t.Errorf("wrong result for %s.Rel(%q, %q)\ngot:  %s\nwant: %s", name, test.root, test.path, got, want)
+					}
+				})
+			}
+			switch name {
+			case "Windows":
+				for _, test := range windowsTests {
+					t.Run(test.path, func(t *testing.T) {
+						got, err := p.Rel(test.root, test.path)
+						if test.want == "err" {
+							if err == nil {
+								t.Errorf("wrong result for %s.Rel(%q, %q)\ngot:  %s\nwant: an error", name, test.root, test.path, got)
+							}
+							return
+						}
+						want := test.want
+						if got != want {
+							t.Errorf("wrong result for %s.Rel(%q, %q)\ngot:  %s\nwant: %s", name, test.root, test.path, got, want)
+						}
+					})
+				}
+			}
+		})
+	}
+}
